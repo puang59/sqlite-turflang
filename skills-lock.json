@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "turflang": {
+      "source": "turf-lang/turf-skills",
+      "sourceType": "github",
+      "skillPath": "turflang/SKILL.md",
+      "computedHash": "d7b7295dc936570de65f7000c1f6f3b836ccf60668948cb1e955f3b1248758a6"
+    }
+  }
+}

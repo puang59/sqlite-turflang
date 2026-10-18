@@ -1,0 +1,93 @@
+struct InputBuffer {
+    buffer: string,
+    input_length: int
+}
+
+fn InputBuffer.new(): void {
+    self.buffer = "";
+    self.input_length = 0;
+}
+
+fn print_prompt(): void {
+    print("db > ");
+}
+
+fn InputBuffer.read_input(): void {
+    self.buffer = input();
+    self.input_length = self.buffer.length();
+}
+
+enum MetaCommandResult { Success, UnrecognizedCommand }
+enum PrepareResult { Success, UnrecognizedStatement }
+
+enum StatementType { Insert, Select }
+struct Statement {
+    kind: StatementType
+}
+
+// handle commands that starts with a dot - non-SQL commands
+fn do_meta_command(buf: &InputBuffer): MetaCommandResult {
+    if buf.buffer == ".exit" {
+        exit(0);
+    }
+    return MetaCommandResult::UnrecognizedCommand;
+}
+
+// SQL compiler
+fn prepare_statement(buf: &InputBuffer, statement: &Statement): PrepareResult {
+    if buf.buffer.starts_with("insert") {
+        statement.kind = StatementType::Insert;
+        return PrepareResult::Success;
+    // We should have done the below instead but in this
+    // tutorial we'll only have one table so its better to hard-code
+    // } elseif buf.buffer.starts_with("select") { 
+    } elseif buf.buffer == "select" {   
+        statement.kind = StatementType::Select;
+        return PrepareResult::Success;
+    }
+    return PrepareResult::UnrecognizedStatement;
+}
+
+// virtual machine part
+fn execute_statement(statement: &Statement): void {
+    compare statement.kind {
+        matches StatementType::Insert: 
+            printline("This is where we would do an insert.");
+        done
+        matches StatementType::Select: 
+            printline("This is where we would do a select.");
+        done
+    }
+}
+
+fn main(): int {
+    mut input_buffer: InputBuffer = InputBuffer::new();
+    
+    while true {
+        print_prompt();
+        input_buffer.read_input();
+
+        if input_buffer.buffer.starts_with(".") {
+            compare do_meta_command(&input_buffer) {
+                matches MetaCommandResult::Success:
+                    continue;
+                done
+                matches MetaCommandResult::UnrecognizedCommand: 
+                    printline("Unrecognized command '" + input_buffer.buffer + "'");
+                    continue;
+                done
+            }
+        }
+
+        mut statement: Statement = Statement::default();
+        // prepare_statement - to set the statement "kind" so that 
+        // execute_statement can further process it
+        if prepare_statement(&input_buffer, &statement) == PrepareResult::UnrecognizedStatement {
+            printline("Unrecognized keyword at start of '" + input_buffer.buffer + "'.");
+            continue;
+        }
+
+        execute_statement(&statement); // prints output according to the statement kind
+        printline("Executed.");
+    }
+}
