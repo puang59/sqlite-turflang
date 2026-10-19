@@ -1,0 +1,11 @@
+import input_buffer::InputBuffer;
+
+pub enum MetaCommandResult { Success, UnrecognizedCommand }
+
+// handle commands that start with a dot - non-SQL commands
+pub fn do_meta_command(buf: &InputBuffer): MetaCommandResult {
+    if buf.buffer == ".exit" {
+        exit(0);
+    }
+    return MetaCommandResult::UnrecognizedCommand;
+}

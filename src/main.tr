@@ -1,198 +1,19 @@
-import list::List;
-
-// wrapper around the line the user typed
-struct InputBuffer {
-    buffer: string,
-    input_length: int
-}
-
-// constructor - every field must be assigned
-fn InputBuffer.new(): void {
-    self.buffer = "";
-    self.input_length = 0;
-}
-
-fn print_prompt(): void {
-    print("db > ");
-}
-
-// input() reads one line (newline already removed)
-fn InputBuffer.read_input(): void {
-    self.buffer = input();
-    self.input_length = self.buffer.length();
-}
-
-// result codes - we return these instead of throwing exceptions
-enum ExecuteResult { Success, TableFull }
-enum MetaCommandResult { Success, UnrecognizedCommand }
-enum PrepareResult { Success, SyntaxError, UnrecognizedStatement }
-
-enum StatementType { Insert, Select }
-
-// one row of our single hard-coded table
-struct Row {
-    id: int, 
-    username: string, 
-    email: string
-}
-
-// setter
-fn Row.new(id: int, username: string, email: string): void {
-    self.id = id; 
-    self.username = username; 
-    self.email = email;
-}
-
-// a prepared statement - carries data from the prepare step to the execute step
-// row_to_insert is only used by insert
-struct Statement {
-    kind: StatementType,
-    row_to_insert: Row
-}
-
-// sizes: row = 4 (id) + 32 (username) + 255 (email) = 291 bytes
-// a page is 4096 bytes, so 4096 / 291 = 14 rows fit in one page
-// max rows = 14 rows per page * 100 pages
-export immut ROW_SIZE: int = 291; 
-export immut ROWS_PER_PAGE: int = 14;
-export immut TABLE_MAX_ROWS: int = 1400;
-
-// the table keeps rows in pages, a page is a small group of rows (14 here)
-struct Table {
-    num_rows: int, 
-    // outer list = pages, inner list = rows inside one page
-    pages: List<List<Row>> 
-}
-
-// table setter
-fn Table.new(): void {
-    self.num_rows = 0;
-    // an empty list, ready to use
-    self.pages = List::default(); 
-}
-
-// get row number n: page = n / 14, position inside that page = n % 14
-// example: row 20 -> page 1, slot 6
-fn Table.row_at(row_num: int): Row {
-    return self.pages[row_num / ROWS_PER_PAGE][row_num % ROWS_PER_PAGE];
-}
-
-// add a row at the end of the table
-fn Table.append_row(row: Row): void {
-    // the page where the next row goes
-    immut page_num: int = self.num_rows / ROWS_PER_PAGE; 
-
-    // this page doesn't exist yet - create it (pages are made only when needed)
-    if page_num >= self.pages.length() { 
-        mut page: List<Row> = List::default(); 
-        self.pages.push(page);
-    }
-
-    self.pages[page_num].push(row);
-    self.num_rows = self.num_rows + 1;
-}
-
-// prints a row like: (1, cstack, foo@bar.com)
-fn print_row(row: &Row): void {
-    printline("(" + (row.id to string) + ", " + row.username + ", " + row.email + ")");
-}
-
-// split a line on spaces and drop empty pieces
-// "insert  1   bob" (extra spaces) -> ["insert", "1", "bob"]
-fn tokenize(line: string): List<string> {
-    mut tokens: List<string> = List::default();
-    immut pieces: List<string> = line.split(" ");
-
-    for i in 0..pieces.length() {
-        if pieces[i] != "" {
-            tokens.push(pieces[i]);
-        }
-    }
-
-    return tokens;
-}
-
-// handle commands that starts with a dot - non-SQL commands
-fn do_meta_command(buf: &InputBuffer): MetaCommandResult {
-    if buf.buffer == ".exit" {
-        exit(0);
-    }
-    return MetaCommandResult::UnrecognizedCommand;
-}
-
-// parse "insert <id> <username> <email>" into statement.row_to_insert
-fn prepare_insert(buf: &InputBuffer, statement: &Statement): PrepareResult {
-    statement.kind = StatementType::Insert;
-    immut tokens: List<string> = tokenize(buf.buffer);
-
-    // we need 4 pieces: the keyword + id + username + email
-    if tokens.length() < 4 {
-        return PrepareResult::SyntaxError;
-    }
-
-    // parse_int returns an error when not able to parse
-    // so we can catch the err using recover
-    // return inside recover leaves prepare_insert itself
-    immut id: int = strings::parse_int(tokens[1]) recover run {
-        return PrepareResult::SyntaxError;
-    };
-
-    statement.row_to_insert = Row::new(id, tokens[2], tokens[3]);
-    return PrepareResult::Success;
-}
-
-// SQL compiler
-fn prepare_statement(buf: &InputBuffer, statement: &Statement): PrepareResult {
-    // starts_with because data follows "insert"
-    if buf.buffer.starts_with("insert") {
-        return prepare_insert(buf, statement);
-    // We should have done the below instead but in this
-    // tutorial we'll only have one table so its better to hard-code
-    // } elseif buf.buffer.starts_with("select") { 
-    } elseif buf.buffer == "select" {   
-        statement.kind = StatementType::Select;
-        return PrepareResult::Success;
-    }
-    return PrepareResult::UnrecognizedStatement;
-}
-
-// ---- virtual machine ---- 
-fn execute_insert(statement: &Statement, table: &Table): ExecuteResult {
-    if table.num_rows >= TABLE_MAX_ROWS {
-        return ExecuteResult::TableFull;
-    }
-
-    table.append_row(statement.row_to_insert);
-    return ExecuteResult::Success;
-}
-
-// print every row, from the first to the last
-fn execute_select(statement: &Statement, table: &Table): ExecuteResult {
-    for i in 0..table.num_rows {
-        immut row: Row = table.row_at(i);
-        print_row(&row);
-    }
-
-    return ExecuteResult::Success;
-}
-
-// dispatch on the statement kind
-fn execute_statement(statement: &Statement, table: &Table): ExecuteResult {
-    compare statement.kind {
-        matches StatementType::Insert: 
-            return execute_insert(statement, table);
-        done
-        matches StatementType::Select: 
-            return execute_select(statement, table);
-        done
-    }
-}
+import input_buffer::InputBuffer;
+import input_buffer::print_prompt;
+import table::Table;
+import statement::Statement;
+import statement::PrepareResult;
+import statement::prepare_statement;
+import executor::ExecuteResult;
+import executor::execute_statement;
+import meta_command::MetaCommandResult;
+import meta_command::do_meta_command;
 
 fn main(): int {
     // the one and only table, lives in memory
     mut table: Table = Table::new();
     mut input_buffer: InputBuffer = InputBuffer::new();
-    
+
     while true {
         print_prompt();
         input_buffer.read_input();
@@ -201,38 +22,35 @@ fn main(): int {
         if input_buffer.buffer.starts_with(".") {
             compare do_meta_command(&input_buffer) {
                 matches MetaCommandResult::Success:
-                    continue;
+                continue;
                 done
-                matches MetaCommandResult::UnrecognizedCommand: 
-                    printline("Unrecognized command '" + input_buffer.buffer + "'");
-                    continue;
+                matches MetaCommandResult::UnrecognizedCommand:
+                printline("Unrecognized command '" + input_buffer.buffer + "'");
+                continue;
                 done
             }
         }
 
-        // all fields start at zero values, prepare_statement fills them in
         mut statement: Statement = Statement::default();
 
-        // prepare_statement fills in statement.kind (and the row for inserts).
         // only the failure cases are handled here: Turf doesn't allow an empty
-        // compare arm, so if is used and Success simply falls through 
-        
+        // compare arm, so if is used and Success simply falls through
         immut prepared: PrepareResult = prepare_statement(&input_buffer, &statement);
         if prepared == PrepareResult::SyntaxError {
             printline("Syntax error. Could not parse statement.");
             continue;
         } elseif prepared == PrepareResult::UnrecognizedStatement {
             printline("Unrecognized keyword at start of '" + input_buffer.buffer + "'.");
-            continue; 
+            continue;
         }
 
         // run the statement and report how it went
         compare execute_statement(&statement, &table) {
             matches ExecuteResult::Success:
-                printline("Executed.");
+            printline("Executed.");
             done
-            matches ExecuteResult::TableFull: 
-                printline("Error: Table full.");
+            matches ExecuteResult::TableFull:
+            printline("Error: Table full.");
             done
         }
     }

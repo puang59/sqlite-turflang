@@ -1,0 +1,17 @@
+// one row of our single hard-coded table
+pub struct Row {
+    pub id: int,
+    pub username: string,
+    pub email: string
+}
+
+pub fn Row.new(id: int, username: string, email: string): void {
+    self.id = id;
+    self.username = username;
+    self.email = email;
+}
+
+// prints a row like: (1, cstack, foo@bar.com)
+pub fn print_row(row: &Row): void {
+    printline("(" + (row.id to string) + ", " + row.username + ", " + row.email + ")");
+}

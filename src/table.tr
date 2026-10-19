@@ -1,0 +1,36 @@
+import list::List;
+import row::Row;
+
+// max rows = 14 rows per page * 100 pages
+export immut ROWS_PER_PAGE: int = 14;
+export immut TABLE_MAX_ROWS: int = 1400;
+
+// the table keeps rows in pages, a page is a small group of rows (14 here)
+pub struct Table {
+    pub num_rows: int,
+    // outer list = pages, inner list = rows inside one page
+    pub pages: List<List<Row>>
+}
+
+pub fn Table.new(): void {
+    self.num_rows = 0;
+    self.pages = List::default();
+}
+
+// get row number n: page = n / 14, position inside that page = n % 14
+pub fn Table.row_at(row_num: int): Row {
+    return self.pages[row_num / ROWS_PER_PAGE][row_num % ROWS_PER_PAGE];
+}
+
+// add a row at the end of the table
+pub fn Table.append_row(row: Row): void {
+    immut page_num: int = self.num_rows / ROWS_PER_PAGE;
+
+    if page_num >= self.pages.length() {
+        mut page: List<Row> = List::default();
+        self.pages.push(page);
+    }
+
+    self.pages[page_num].push(row);
+    self.num_rows = self.num_rows + 1;
+}

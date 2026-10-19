@@ -1,0 +1,38 @@
+import row::Row;
+import row::print_row;
+import table::Table;
+import table::TABLE_MAX_ROWS;
+import statement::Statement;
+import statement::StatementType;
+
+pub enum ExecuteResult { Success, TableFull }
+
+fn execute_insert(statement: &Statement, table: &Table): ExecuteResult {
+    if table.num_rows >= TABLE_MAX_ROWS {
+        return ExecuteResult::TableFull;
+    }
+
+    table.append_row(statement.row_to_insert);
+    return ExecuteResult::Success;
+}
+
+fn execute_select(statement: &Statement, table: &Table): ExecuteResult {
+    for i in 0..table.num_rows {
+        immut row: Row = table.row_at(i);
+        print_row(&row);
+    }
+
+    return ExecuteResult::Success;
+}
+
+// dispatch on the statement kind
+pub fn execute_statement(statement: &Statement, table: &Table): ExecuteResult {
+    compare statement.kind {
+        matches StatementType::Insert:
+        return execute_insert(statement, table);
+        done
+        matches StatementType::Select:
+        return execute_select(statement, table);
+        done
+    }
+}

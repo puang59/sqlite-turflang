@@ -1,0 +1,21 @@
+// wrapper around the line the user typed
+pub struct InputBuffer {
+    pub buffer: string,
+    pub input_length: int
+}
+
+// constructor - every field must be assigned
+pub fn InputBuffer.new(): void {
+    self.buffer = "";
+    self.input_length = 0;
+}
+
+// input() reads one line (newline already removed)
+pub fn InputBuffer.read_input(): void {
+    self.buffer = input();
+    self.input_length = self.buffer.length();
+}
+
+pub fn print_prompt(): void {
+    print("db > ");
+}

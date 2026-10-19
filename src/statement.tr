@@ -1,0 +1,54 @@
+import list::List;
+import input_buffer::InputBuffer;
+import row::Row;
+
+pub enum PrepareResult { Success, SyntaxError, UnrecognizedStatement }
+pub enum StatementType { Insert, Select }
+
+// a prepared statement - carries data from the prepare step to the execute step
+pub struct Statement {
+    pub kind: StatementType,
+    pub row_to_insert: Row
+}
+
+// split a line on spaces and drop empty pieces
+fn tokenize(line: string): List<string> {
+    mut tokens: List<string> = List::default();
+    immut pieces: List<string> = line.split(" ");
+
+    for i in 0..pieces.length() {
+        if pieces[i] != "" {
+            tokens.push(pieces[i]);
+        }
+    }
+
+    return tokens;
+}
+
+// parse "insert <id> <username> <email>" into statement.row_to_insert
+fn prepare_insert(buf: &InputBuffer, statement: &Statement): PrepareResult {
+    statement.kind = StatementType::Insert;
+    immut tokens: List<string> = tokenize(buf.buffer);
+
+    if tokens.length() < 4 {
+        return PrepareResult::SyntaxError;
+    }
+
+    immut id: int = strings::parse_int(tokens[1]) recover run {
+        return PrepareResult::SyntaxError;
+    };
+
+    statement.row_to_insert = Row::new(id, tokens[2], tokens[3]);
+    return PrepareResult::Success;
+}
+
+// SQL compiler
+pub fn prepare_statement(buf: &InputBuffer, statement: &Statement): PrepareResult {
+    if buf.buffer.starts_with("insert") {
+        return prepare_insert(buf, statement);
+    } elseif buf.buffer == "select" {
+        statement.kind = StatementType::Select;
+        return PrepareResult::Success;
+    }
+    return PrepareResult::UnrecognizedStatement;
+}
