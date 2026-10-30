@@ -2,8 +2,11 @@ import list::List;
 import input_buffer::InputBuffer;
 import row::Row;
 
-pub enum PrepareResult { Success, SyntaxError, UnrecognizedStatement }
+pub enum PrepareResult { Success, NegativeId, StringTooLong, SyntaxError, UnrecognizedStatement }
 pub enum StatementType { Insert, Select }
+
+export immut COLUMN_USERNAME_SIZE: int = 32;
+export immut COLUMN_EMAIL_SIZE: int = 255;
 
 // a prepared statement - carries data from the prepare step to the execute step
 pub struct Statement {
@@ -34,9 +37,21 @@ fn prepare_insert(buf: &InputBuffer, statement: &Statement): PrepareResult {
         return PrepareResult::SyntaxError;
     }
 
+    // to ensure that id is always an int
     immut id: int = strings::parse_int(tokens[1]) recover run {
         return PrepareResult::SyntaxError;
     };
+
+    // id must be positive
+    if id < 0 {
+        return PrepareResult::NegativeId;
+    }
+    if tokens[2].length() > COLUMN_USERNAME_SIZE {
+        return PrepareResult::StringTooLong;
+    }
+    if tokens[3].length() > COLUMN_EMAIL_SIZE {
+        return PrepareResult::StringTooLong;
+    }
 
     statement.row_to_insert = Row::new(id, tokens[2], tokens[3]);
     return PrepareResult::Success;

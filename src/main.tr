@@ -42,6 +42,12 @@ fn main(): int {
         } elseif prepared == PrepareResult::UnrecognizedStatement {
             printline("Unrecognized keyword at start of '" + input_buffer.buffer + "'.");
             continue;
+        } elseif prepared == PrepareResult::NegativeId {
+            printline("ID must be positive.");
+            continue;
+        } elseif prepared == PrepareResult::StringTooLong {
+            printline("String is too long.");
+            continue;
         }
 
         // run the statement and report how it went
